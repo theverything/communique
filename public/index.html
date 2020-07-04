@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <button>Close the connection</button>
+
+    <ul></ul>
+    <script>
+      const button = document.querySelector("button");
+      const evtSource = new EventSource(
+        "http://localhost:8080/api/notify?topics=all"
+      );
+
+      console.log(evtSource.withCredentials);
+      console.log(evtSource.readyState);
+      console.log(evtSource.url);
+
+      const eventList = document.querySelector("ul");
+
+      function addEvent(content) {
+        const newElement = document.createElement("li");
+
+        newElement.textContent = content;
+        eventList.appendChild(newElement);
+      }
+
+      evtSource.addEventListener(
+        "open",
+        () => {
+          console.log("Connection to server opened.");
+        },
+        false
+      );
+
+      evtSource.addEventListener(
+        "message",
+        (e) => {
+          addEvent("message: " + e.data);
+        },
+        false
+      );
+
+      evtSource.addEventListener(
+        "ping",
+        (e) => {
+          const obj = JSON.parse(e.data);
+
+          addEvent("ping: " + obj.time);
+        },
+        false
+      );
+
+      evtSource.addEventListener(
+        "error",
+        (e) => {
+          console.log("EventSource failed.", e);
+        },
+        false
+      );
+
+      button.onclick = function () {
+        console.log("Connection closed");
+        evtSource.close();
+      };
+    </script>
+  </body>
+</html>
