@@ -36,8 +36,7 @@ func (h *handler) notify(w http.ResponseWriter, r *http.Request) {
 
 	t := r.URL.Query().Get("topic")
 	if t == "" {
-
-		http.Error(w, "Missing `topics` query param.", http.StatusBadRequest)
+		http.Error(w, "Missing `topic` query param.", http.StatusBadRequest)
 		return
 	}
 
