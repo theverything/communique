@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/theverything/communique/internal/dispatch"
-
 	"github.com/theverything/communique/internal/notify"
 )
 
