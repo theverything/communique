@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
+	"github.com/theverything/communique/internal/hub"
 	"github.com/theverything/communique/internal/notify"
 )
 
@@ -23,7 +23,7 @@ type notification struct {
 }
 
 type handler struct {
-	dispatcher dispatch.Dispatcher
+	dispatcher hub.Hub
 }
 
 func (h *handler) notify(w http.ResponseWriter, r *http.Request) {
@@ -33,19 +33,19 @@ func (h *handler) notify(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	t := r.URL.Query().Get("topics")
+	t := r.URL.Query().Get("topic")
 	if t == "" {
+
 		http.Error(w, "Missing `topics` query param.", http.StatusBadRequest)
 		return
 	}
 
-	topics := strings.Split(t, "_")
 	client := notify.New()
 
-	h.dispatcher.Join(topics, client)
+	h.dispatcher.Join(t, client)
 	defer func() {
 		log.Println("unregistering client")
-		h.dispatcher.Unregister(client)
+		h.dispatcher.Leave(t, client)
 	}()
 
 	w.Header().Set("Content-Type", "text/event-stream")
@@ -77,7 +77,9 @@ func (h *handler) dispatch(w http.ResponseWriter, r *http.Request) {
 
 	err := json.NewDecoder(r.Body).Decode(&body)
 	if err != nil {
+		log.Println(err)
 		http.Error(w, "Bad request body.", http.StatusInternalServerError)
+		return
 	}
 
 	go h.dispatcher.Dispatch(body.Topic, body.Payload)
@@ -117,7 +119,8 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.serveIndex(w, r)
 }
 
-func New(config Config, dispatcher dispatch.Dispatcher) *http.Server {
+// New -
+func New(config Config, dispatcher hub.Hub) *http.Server {
 	return &http.Server{
 		Handler: &handler{dispatcher: dispatcher},
 		Addr:    fmt.Sprintf(":%d", config.Port),

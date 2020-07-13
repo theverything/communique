@@ -17,22 +17,27 @@ const (
 	dispatchChannelBufferSize = 20
 )
 
+// Starter -
 type Starter interface {
 	Start()
 }
 
+// Joiner -
 type Joiner interface {
 	Join(topic string, client io.Writer)
 }
 
+// Leaver -
 type Leaver interface {
 	Leave(topic string, client io.Writer)
 }
 
+// Dispatcher -
 type Dispatcher interface {
 	Dispatch(topic string, payload []byte)
 }
 
+// Hub -
 type Hub interface {
 	Joiner
 	Leaver

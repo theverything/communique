@@ -1,154 +1,138 @@
-// package hub_test
+package hub_test
 
-// import (
-// 	"context"
-// 	"io"
-// 	"sync"
-// 	"testing"
-// 	"time"
+import (
+	"context"
+	"io"
+	"sync"
+	"testing"
+	"time"
 
-// 	dispatch "github.com/theverything/communique/internal/hub"
-// )
+	"github.com/theverything/communique/internal/hub"
+)
 
-// type mockStore struct {
-// 	mu *sync.Mutex
+type mockStore struct {
+	mu *sync.Mutex
 
-// 	Client           io.Writer
-// 	JoinCalled       int
-// 	LeaveCalled      int
-// 	RegisterCalled   int
-// 	UnregisterCalled int
-// }
+	Client       io.Writer
+	SetCalled    int
+	GetCalled    int
+	RemoveCalled int
+}
 
-// func (m *mockStore) RegisterClient(client io.Writer) {
-// 	m.mu.Lock()
-// 	defer m.mu.Unlock()
-// 	m.RegisterCalled = m.RegisterCalled + 1
-// }
+func (m *mockStore) Get(topic string) map[io.Writer]struct{} {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.GetCalled = m.GetCalled + 1
 
-// func (m *mockStore) UnregisterClient(client io.Writer) {
-// 	m.mu.Lock()
-// 	defer m.mu.Unlock()
-// 	m.UnregisterCalled = m.UnregisterCalled + 1
-// }
+	return map[io.Writer]struct{}{
+		m.Client: {},
+	}
+}
 
-// func (m *mockStore) JoinTopics(topics []string, client io.Writer) {
-// 	m.mu.Lock()
-// 	defer m.mu.Unlock()
-// 	m.JoinCalled = m.JoinCalled + 1
-// }
+func (m *mockStore) Remove(topic string, client io.Writer) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.RemoveCalled = m.RemoveCalled + 1
+}
 
-// func (m *mockStore) LeaveTopics(topics []string, client io.Writer) {
-// 	m.mu.Lock()
-// 	defer m.mu.Unlock()
-// 	m.LeaveCalled = m.LeaveCalled + 1
-// }
+func (m *mockStore) Set(topic string, client io.Writer) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.SetCalled = m.SetCalled + 1
+}
 
-// func (m *mockStore) GetTopicClients(topic string) []io.Writer {
-// 	return []io.Writer{m.Client}
-// }
+func newMockStore(client io.Writer) *mockStore {
+	mu := new(sync.Mutex)
 
-// func newMockStore(client io.Writer) *mockStore {
-// 	mu := new(sync.Mutex)
+	return &mockStore{
+		Client: client,
+		mu:     mu,
+	}
+}
 
-// 	return &mockStore{
-// 		Client: client,
-// 		mu:     mu,
-// 	}
-// }
+type mockClient struct {
+	id     string
+	called int
+	mu     *sync.Mutex
+}
 
-// type mockClient struct {
-// 	id     string
-// 	called int
-// 	mu     *sync.Mutex
-// }
+func (m *mockClient) Write(payload []byte) (int, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
-// func (m *mockClient) Write(payload []byte) (int, error) {
-// 	m.mu.Lock()
-// 	defer m.mu.Unlock()
+	m.called = m.called + 1
 
-// 	m.called = m.called + 1
+	return len(payload), nil
+}
 
-// 	return len(payload), nil
-// }
+func (m *mockClient) calledTimes() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
-// func (m *mockClient) calledTimes() int {
-// 	m.mu.Lock()
-// 	defer m.mu.Unlock()
+	return m.called
+}
 
-// 	return m.called
-// }
+func newMockClient(id string) *mockClient {
+	mu := new(sync.Mutex)
 
-// func newMockClient(id string) *mockClient {
-// 	mu := new(sync.Mutex)
+	return &mockClient{
+		id: id,
+		mu: mu,
+	}
+}
 
-// 	return &mockClient{
-// 		id: id,
-// 		mu: mu,
-// 	}
-// }
+func TestMemoryDispatch(t *testing.T) {
+	doneChan := make(chan struct{})
+	ctx, cancel := context.WithCancel(context.Background())
+	client := newMockClient("1")
+	store := newMockStore(client)
+	topic := "foo"
 
-// func TestMemoryDispatch(t *testing.T) {
-// 	ctx, cancel := context.WithCancel(context.Background())
-// 	client := newMockClient("1")
-// 	store := newMockStore(client)
-// 	topics := []string{"foo"}
+	d := hub.New(ctx, hub.Config{Concurrency: 5}, store)
 
-// 	d := dispatch.New(ctx, dispatch.DispatcherConfig{Concurrency: 5}, store).Start()
+	go func() {
+		d.Start()
+		doneChan <- struct{}{}
+	}()
 
-// 	d.Join(topics, client)
-// 	d.Join(topics, client)
-// 	d.Join(topics, client)
-// 	d.Leave(topics, client)
-// 	d.Leave(topics, client)
-// 	d.Leave(topics, client)
-// 	d.Leave(topics, client)
-// 	d.Register(client)
-// 	d.Register(client)
-// 	d.Register(client)
-// 	d.Register(client)
-// 	d.Register(client)
-// 	d.Unregister(client)
-// 	d.Unregister(client)
-// 	d.Unregister(client)
-// 	d.Unregister(client)
-// 	d.Unregister(client)
-// 	d.Unregister(client)
-// 	d.Dispatch("foo", []byte("hello"))
-// 	d.Dispatch("foo", []byte("hello"))
-// 	d.Dispatch("foo", []byte("hello"))
-// 	d.Dispatch("foo", []byte("hello"))
-// 	d.Dispatch("foo", []byte("hello"))
-// 	d.Dispatch("foo", []byte("hello"))
-// 	d.Dispatch("foo", []byte("hello"))
-// 	d.Dispatch("foo", []byte("hello"))
-// 	d.Dispatch("foo", []byte("hello"))
-// 	d.Dispatch("foo", []byte("hello"))
+	d.Join(topic, client)
+	d.Join(topic, client)
+	d.Join(topic, client)
+	d.Leave(topic, client)
+	d.Leave(topic, client)
+	d.Leave(topic, client)
+	d.Leave(topic, client)
+	d.Dispatch("foo", []byte("hello"))
+	d.Dispatch("foo", []byte("hello"))
+	d.Dispatch("foo", []byte("hello"))
+	d.Dispatch("foo", []byte("hello"))
+	d.Dispatch("foo", []byte("hello"))
+	d.Dispatch("foo", []byte("hello"))
+	d.Dispatch("foo", []byte("hello"))
+	d.Dispatch("foo", []byte("hello"))
+	d.Dispatch("foo", []byte("hello"))
+	d.Dispatch("foo", []byte("hello"))
 
-// 	// wait for calls to be processed
-// 	time.Sleep(time.Second * 2)
+	// wait for calls to be processed
+	time.Sleep(time.Second * 2)
 
-// 	cancel()
+	cancel()
 
-// 	d.Wait()
+	<-doneChan
 
-// 	if store.JoinCalled != 3 {
-// 		t.Error("Join not called")
-// 	}
+	if store.SetCalled != 3 {
+		t.Errorf("Join not called received %d", store.SetCalled)
+	}
 
-// 	if store.LeaveCalled != 4 {
-// 		t.Error("Leave not called")
-// 	}
+	if store.RemoveCalled != 4 {
+		t.Errorf("Leave not called received %d", store.RemoveCalled)
+	}
 
-// 	if store.RegisterCalled != 5 {
-// 		t.Error("Register not called")
-// 	}
+	if store.GetCalled != 10 {
+		t.Errorf("Dispatch not called received %d", store.GetCalled)
+	}
 
-// 	if store.UnregisterCalled != 6 {
-// 		t.Error("Unregister not called")
-// 	}
-
-// 	if client.calledTimes() != 10 {
-// 		t.Error("Dispatch not called")
-// 	}
-// }
+	if client.calledTimes() != 10 {
+		t.Errorf("client not called received %d", client.calledTimes())
+	}
+}

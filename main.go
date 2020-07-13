@@ -8,7 +8,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/theverything/communique/internal/dispatch"
+	"github.com/theverything/communique/internal/hub"
 	"github.com/theverything/communique/internal/server"
 	"github.com/theverything/communique/internal/store"
 )
@@ -18,9 +18,9 @@ func main() {
 	ctx := context.Background()
 	ctxc, cancel := context.WithCancel(ctx)
 	s := store.New()
-	d := dispatch.New(ctxc, dispatch.DispatcherConfig{Concurrency: 5}, s)
+	d := hub.New(ctxc, hub.Config{Concurrency: 5}, s)
 
-	d.Start()
+	go d.Start()
 
 	log.Println("server starting on port 8080")
 	srv := server.New(server.Config{Port: 8080}, d)
@@ -53,7 +53,6 @@ func main() {
 	defer cancelT()
 
 	cancel()
-	d.Wait()
 
 	srv.Shutdown(ctxt)
 }

@@ -5,14 +5,17 @@ import (
 	"sync"
 )
 
+// Getter -
 type Getter interface {
 	Get(key string) map[io.Writer]struct{}
 }
 
+// Setter -
 type Setter interface {
 	Set(key string, client io.Writer)
 }
 
+// Remover -
 type Remover interface {
 	Remove(key string, client io.Writer)
 }
