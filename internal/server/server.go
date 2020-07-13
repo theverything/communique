@@ -13,6 +13,7 @@ import (
 	"github.com/theverything/communique/internal/notify"
 )
 
+// Config -
 type Config struct {
 	Port int
 }
