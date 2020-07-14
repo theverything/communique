@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/theverything/communique/internal/hub"
@@ -87,24 +85,6 @@ func (h *handler) dispatch(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (h *handler) serveIndex(w http.ResponseWriter, r *http.Request) {
-	p, err := filepath.Abs("public/index.html")
-	if err != nil {
-		log.Println(err)
-		http.Error(w, "Can not build path to index.html", http.StatusInternalServerError)
-		return
-	}
-
-	html, err := os.Open(p)
-	if err != nil {
-		log.Println(err)
-		http.Error(w, "Can not open index.html", http.StatusInternalServerError)
-		return
-	}
-
-	http.ServeContent(w, r, "index", time.Now(), html)
-}
-
 func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	log.Println(fmt.Sprintf("%s %s", r.Method, r.URL.Path))
 
@@ -116,7 +96,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.serveIndex(w, r)
+	http.NotFound(w, r)
 }
 
 // New -
