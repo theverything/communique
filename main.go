@@ -22,8 +22,8 @@ func main() {
 
 	go d.Start()
 
-	log.Println("server starting on port 8080")
-	srv := server.New(server.Config{Port: 8080}, d)
+	log.Println("server starting on port 3000")
+	srv := server.New(server.Config{Port: 3000}, d)
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(
