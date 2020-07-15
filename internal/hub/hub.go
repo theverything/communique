@@ -2,6 +2,7 @@ package hub
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"sync"
@@ -70,6 +71,10 @@ type Config struct {
 	Concurrency uint
 }
 
+func createMembershipMessage(i int) []byte {
+	return []byte(fmt.Sprintf(`{"type":"membership","payload":%d}`, i))
+}
+
 func (d *hub) work(id uint) {
 	defer d.wg.Done()
 	defer func() {
@@ -79,10 +84,20 @@ func (d *hub) work(id uint) {
 	for {
 		select {
 		case membership := <-d.join:
-			d.store.Set(membership.Topic, membership.Client)
+			count := d.store.Set(membership.Topic, membership.Client)
+
+			d.Dispatch(
+				membership.Topic,
+				createMembershipMessage(count),
+			)
 
 		case membership := <-d.leave:
-			d.store.Remove(membership.Topic, membership.Client)
+			count := d.store.Remove(membership.Topic, membership.Client)
+
+			d.Dispatch(
+				membership.Topic,
+				createMembershipMessage(count),
+			)
 
 		case dispatch := <-d.dispatch:
 			for c := range d.store.Get(dispatch.Topic) {

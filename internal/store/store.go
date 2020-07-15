@@ -12,12 +12,12 @@ type Getter interface {
 
 // Setter -
 type Setter interface {
-	Set(key string, client io.Writer)
+	Set(key string, client io.Writer) int
 }
 
 // Remover -
 type Remover interface {
-	Remove(key string, client io.Writer)
+	Remove(key string, client io.Writer) int
 }
 
 // Store -
@@ -33,7 +33,7 @@ type store struct {
 }
 
 // Set -
-func (s *store) Set(key string, client io.Writer) {
+func (s *store) Set(key string, client io.Writer) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -42,6 +42,8 @@ func (s *store) Set(key string, client io.Writer) {
 	}
 
 	s.topics[key][client] = struct{}{}
+
+	return len(s.topics[key])
 }
 
 // Get -
@@ -57,7 +59,7 @@ func (s *store) Get(key string) map[io.Writer]struct{} {
 }
 
 // Remove -
-func (s *store) Remove(key string, client io.Writer) {
+func (s *store) Remove(key string, client io.Writer) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -68,6 +70,8 @@ func (s *store) Remove(key string, client io.Writer) {
 			delete(s.topics, key)
 		}
 	}
+
+	return len(s.topics[key])
 }
 
 // New -

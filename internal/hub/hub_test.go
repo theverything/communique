@@ -29,16 +29,20 @@ func (m *mockStore) Get(topic string) map[io.Writer]struct{} {
 	}
 }
 
-func (m *mockStore) Remove(topic string, client io.Writer) {
+func (m *mockStore) Remove(topic string, client io.Writer) int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.RemoveCalled = m.RemoveCalled + 1
+
+	return 0
 }
 
-func (m *mockStore) Set(topic string, client io.Writer) {
+func (m *mockStore) Set(topic string, client io.Writer) int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.SetCalled = m.SetCalled + 1
+
+	return 0
 }
 
 func newMockStore(client io.Writer) *mockStore {
@@ -128,11 +132,11 @@ func TestMemoryDispatch(t *testing.T) {
 		t.Errorf("Leave not called received %d", store.RemoveCalled)
 	}
 
-	if store.GetCalled != 10 {
+	if store.GetCalled != 17 {
 		t.Errorf("Dispatch not called received %d", store.GetCalled)
 	}
 
-	if client.calledTimes() != 10 {
+	if client.calledTimes() != 17 {
 		t.Errorf("client not called received %d", client.calledTimes())
 	}
 }

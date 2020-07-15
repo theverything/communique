@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/lithammer/shortuuid/v3"
 	"github.com/theverything/communique/internal/hub"
 	"github.com/theverything/communique/internal/notify"
 )
@@ -23,6 +24,22 @@ type notification struct {
 
 type handler struct {
 	dispatcher hub.Hub
+}
+
+var (
+	messageHeader     = []byte(`{"type":"message","payload":`)
+	messageTrailer    = []byte(`}`)
+	messageWrapperLen = len(messageHeader) + len(messageTrailer)
+)
+
+func createMessage(payload []byte) []byte {
+	msg := make([]byte, 0, len(payload)+messageWrapperLen)
+
+	msg = append(msg, messageHeader...)
+	msg = append(msg, payload...)
+	msg = append(msg, messageTrailer...)
+
+	return msg
 }
 
 func (h *handler) notify(w http.ResponseWriter, r *http.Request) {
@@ -59,7 +76,8 @@ func (h *handler) notify(w http.ResponseWriter, r *http.Request) {
 	for {
 		select {
 		case payload := <-client.C:
-			fmt.Fprintf(w, "data: %s\n\n", string(payload))
+			id := shortuuid.New()
+			fmt.Fprintf(w, "id: %s\ndata: %s\n\n", id, string(payload))
 		case <-ping.C:
 			fmt.Fprintf(w, "event: ping\ndata: {\"time\":\"%s\"}\n\n", time.Now().Format(time.RFC3339Nano))
 		case <-closeNotify:
@@ -80,7 +98,7 @@ func (h *handler) dispatch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go h.dispatcher.Dispatch(body.Topic, body.Payload)
+	go h.dispatcher.Dispatch(body.Topic, createMessage(body.Payload))
 
 	w.WriteHeader(http.StatusOK)
 }
