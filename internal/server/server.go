@@ -14,7 +14,8 @@ import (
 
 // Config -
 type Config struct {
-	Port int
+	Port        int
+	DisableCORS bool
 }
 
 type notification struct {
@@ -42,7 +43,37 @@ func createMessage(payload []byte) []byte {
 	return msg
 }
 
+func setHeaders(next http.Handler, disableCORS bool) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		origin := "https://chat.jeffh.dev"
+		methods := "POST, GET, OPTIONS"
+		headers := "Content-Type"
+
+		if disableCORS {
+			origin = "*"
+			methods = "*"
+			headers = "*"
+		}
+
+		w.Header().Set("Accept", "application/json")
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+		w.Header().Set("Access-Control-Allow-Methods", methods)
+		w.Header().Set("Access-Control-Allow-Headers", headers)
+
+		if r.Method == http.MethodOptions {
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func (h *handler) notify(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.NotFound(w, r)
+		return
+	}
+
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "Streaming unsupported.", http.StatusInternalServerError)
@@ -66,7 +97,6 @@ func (h *handler) notify(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
 
 	closeNotify := w.(http.CloseNotifier).CloseNotify()
 
@@ -89,6 +119,11 @@ func (h *handler) notify(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *handler) dispatch(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.NotFound(w, r)
+		return
+	}
+
 	var body notification
 
 	err := json.NewDecoder(r.Body).Decode(&body)
@@ -120,7 +155,12 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // New -
 func New(config Config, dispatcher hub.Hub) *http.Server {
 	return &http.Server{
-		Handler: &handler{dispatcher: dispatcher},
-		Addr:    fmt.Sprintf(":%d", config.Port),
+		Handler: setHeaders(
+			&handler{
+				dispatcher: dispatcher,
+			},
+			config.DisableCORS,
+		),
+		Addr: fmt.Sprintf(":%d", config.Port),
 	}
 }

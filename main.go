@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 	"os"
 	"os/signal"
@@ -13,7 +14,13 @@ import (
 	"github.com/theverything/communique/internal/store"
 )
 
+var disableCORS = false
+
 func main() {
+	flag.BoolVar(&disableCORS, "disable-cors", false, "Disable CORS headers")
+
+	flag.Parse()
+
 	shutdown := make(chan struct{}, 1)
 	ctx := context.Background()
 	ctxc, cancel := context.WithCancel(ctx)
@@ -22,8 +29,12 @@ func main() {
 
 	go d.Start()
 
-	log.Println("server starting on port 3000")
-	srv := server.New(server.Config{Port: 3000}, d)
+	if disableCORS {
+		log.Println("CORS disabled")
+	}
+
+	log.Println("server starting on port 8080")
+	srv := server.New(server.Config{Port: 8080, DisableCORS: disableCORS}, d)
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(
