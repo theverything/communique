@@ -17,6 +17,6 @@ FROM alpine
 
 COPY --from=builder /build/communique /communique
 
-EXPOSE 3000
+EXPOSE 8080
 
 ENTRYPOINT ["/communique"]
